@@ -1,7 +1,7 @@
 import numpy as np
 from cv2.typing import MatLike
 
-from packet_types import Packet, PacketAddress, PacketType
+from legolas_common.src.packet_types import Packet, PacketAddress, PacketType
 
 
 def test_pack_control() -> None:

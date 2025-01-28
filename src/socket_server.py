@@ -3,8 +3,8 @@ import threading
 import time
 from queue import Queue
 
-from connection_handler import ConnectionHandler
-from packet_types import BROADCAST_DEST, Packet, PacketAddress, PacketType
+from .connection_handler import ConnectionHandler
+from .packet_types import BROADCAST_DEST, Packet, PacketAddress, PacketType
 
 
 class SocketServer:

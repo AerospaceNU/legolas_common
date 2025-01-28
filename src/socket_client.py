@@ -3,8 +3,8 @@ import threading
 import time
 from queue import Queue
 
-from connection_handler import ConnectionHandler
-from packet_types import Packet, PacketType
+from .connection_handler import ConnectionHandler
+from .packet_types import Packet, PacketType
 
 
 class SocketClient:

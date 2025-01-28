@@ -4,7 +4,7 @@ import time
 from queue import Queue
 from socket import socket
 
-from packet_types import BROADCAST_DEST, Packet, PacketType
+from .packet_types import BROADCAST_DEST, Packet, PacketType
 
 
 class ConnectionHandler:
