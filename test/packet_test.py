@@ -1,7 +1,10 @@
 import numpy as np
 from cv2.typing import MatLike
 
+# isort: off
 from packet_types import Packet, PacketAddress, PacketType  # type: ignore
+
+# isort: on
 
 
 def test_pack_control() -> None:
