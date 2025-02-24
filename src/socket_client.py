@@ -3,7 +3,7 @@ import threading
 import time
 from queue import Queue
 
-from .connection_handler import ConnectionHandler
+from .connection_handler import RECEIVE_BUFFER_SIZE, ConnectionHandler
 from .packet_types import Packet, PacketType
 
 
@@ -32,6 +32,7 @@ class SocketClient:
         self.server_address = server_address
         self.server_port = server_port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RECEIVE_BUFFER_SIZE)
 
         self.outgoing_data = outgoing_data
         self.received_data = received_data
@@ -62,6 +63,9 @@ class SocketClient:
                 if time.time() - self.prev_connection_time > self.disconnect_retry_interval:
                     try:
                         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        self.client_socket.setsockopt(
+                            socket.SOL_SOCKET, socket.SO_RCVBUF, RECEIVE_BUFFER_SIZE
+                        )
                         self.client_socket.connect((self.server_address, self.server_port))
                         self.disconnected = False
                         self.handler = ConnectionHandler(
@@ -84,7 +88,7 @@ class SocketClient:
                             self.client_socket.close()
                         except Exception:
                             pass
-
+                    print(f"Packet time differential is {time.time() - msg.timestamp} seconds")
                     if msg.packet_type == PacketType.INTERNAL:
                         print(f"Received internal: {msg.payload}")
                     elif msg.packet_type == PacketType.CONTROL:

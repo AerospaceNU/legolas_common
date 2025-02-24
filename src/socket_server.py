@@ -3,7 +3,7 @@ import threading
 import time
 from queue import Queue
 
-from .connection_handler import ConnectionHandler
+from .connection_handler import TRANSMIT_BUFFER_SIZE, ConnectionHandler
 from .packet_types import BROADCAST_DEST, Packet, PacketAddress, PacketType
 
 
@@ -29,6 +29,8 @@ class SocketServer:
             received_data: Queue of received data from clients
         """
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, TRANSMIT_BUFFER_SIZE)
         self.server_socket.bind((bind_address, bind_port))
         self.server_socket.listen(10)
         self.server_socket.settimeout(0.1)
@@ -75,7 +77,7 @@ class SocketServer:
             except TimeoutError:
                 # Timeout error just means that no connection requests were made
                 pass
-            time.sleep(0.01)
+            time.sleep(0.00001)
 
     def _run_handler(self):
         """Main loop to run the server and transmit and receive packets"""
@@ -120,4 +122,4 @@ class SocketServer:
                             f"Failed to transmit to address {tx_message.packet_address}: "
                             "no matching transmit queue found"
                         )
-            time.sleep(0.01)
+            time.sleep(0.00001)
