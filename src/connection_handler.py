@@ -79,6 +79,7 @@ class ConnectionHandler:
                 readable, _, _ = select.select([self.client_socket], [], [], 0.1)
                 if readable:
                     data = self.client_socket.recv(self.socket_data_len)
+
                     if not data:
                         break
 
@@ -111,6 +112,7 @@ class ConnectionHandler:
                     if self.exited:
                         break
                 while not self.tx_queue.empty():
+                    print(f"Queue length: {self.tx_queue.qsize()}")
                     message = self.tx_queue.get()
                     message_bytes = Packet.pack(message)
                     self.client_socket.sendall(message_bytes)

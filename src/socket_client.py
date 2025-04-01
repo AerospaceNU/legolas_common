@@ -36,6 +36,7 @@ class SocketClient:
 
         self.outgoing_data = outgoing_data
         self.received_data = received_data
+        self.internal_recv_queue: Queue[Packet] = Queue()
         self.disconnected = True
 
         self.prev_connection_time = 0
@@ -70,7 +71,7 @@ class SocketClient:
                         self.disconnected = False
                         self.handler = ConnectionHandler(
                             self.outgoing_data,
-                            self.received_data,
+                            self.internal_recv_queue,
                             self.client_socket,
                             self.stop_event,
                         )
@@ -79,8 +80,8 @@ class SocketClient:
                         print("Unable to connect to server...")
                         self.prev_connection_time = time.time()
             else:
-                if not self.received_data.empty():
-                    msg = self.received_data.get()
+                if not self.internal_recv_queue.empty():
+                    msg = self.internal_recv_queue.get()
                     if msg.packet_type == PacketType.INTERNAL and msg.payload == "CONN_SHUTDOWN":
                         self.disconnected = True
                         try:
@@ -88,15 +89,10 @@ class SocketClient:
                             self.client_socket.close()
                         except Exception:
                             pass
-                    print(f"Packet time differential is {time.time() - msg.timestamp} seconds")
-                    if msg.packet_type == PacketType.INTERNAL:
-                        print(f"Received internal: {msg.payload}")
-                    elif msg.packet_type == PacketType.CONTROL:
-                        print(f"Received control: {msg.payload}")
-                    elif msg.packet_type == PacketType.IMAGE:
-                        print("Received image")
                     else:
-                        print(f"Received ack: {msg.payload}")
+                        # Forward any other messages to the receiver
+                        self.received_data.put(msg)
+            time.sleep(0.00001)
         try:
             self.client_socket.shutdown(socket.SHUT_RDWR)
             self.client_socket.close()
