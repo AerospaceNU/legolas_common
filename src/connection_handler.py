@@ -6,6 +6,9 @@ from socket import socket
 
 from .packet_types import BROADCAST_DEST, Packet, PacketType
 
+RECEIVE_BUFFER_SIZE = 16 * 1024 * 1024  # 16 MB
+TRANSMIT_BUFFER_SIZE = 8 * 1024 * 1024  # 8 MB
+
 
 class ConnectionHandler:
     """Connection handler to be created for each incoming connection
@@ -20,7 +23,7 @@ class ConnectionHandler:
         rx_queue: Queue[Packet],
         client_socket: socket,
         stop_event: threading.Event,
-        socket_data_len: int = 8192,
+        socket_data_len: int = RECEIVE_BUFFER_SIZE,
     ) -> None:
         """Construct a ConnectionHandler
 
@@ -71,8 +74,8 @@ class ConnectionHandler:
         Receives data from the socket and attempts to parse Packets from the received bytes
         """
 
-        try:
-            while not self.stop_event.is_set():
+        while not self.stop_event.is_set():
+            try:
                 readable, _, _ = select.select([self.client_socket], [], [], 0.1)
                 if readable:
                     data = self.client_socket.recv(self.socket_data_len)
@@ -82,20 +85,19 @@ class ConnectionHandler:
                     self.recv_bytes += data
 
                     while True:
-                        try:
-                            recv_pkt, remaining = Packet.unpack(self.recv_bytes)
-                            self.rx_queue.put(recv_pkt)
-                            self.recv_bytes = remaining
-                        except ValueError:
+                        recv_pkt, remaining = Packet.unpack(self.recv_bytes)
+                        if recv_pkt is None:
                             break
-                time.sleep(0.01)
-        except Exception as e:
-            print(f"Error receiving: {e}")
-        finally:
-            self.rx_queue.put(Packet(PacketType.INTERNAL, BROADCAST_DEST, "CONN_SHUTDOWN"))
-            self.client_socket.close()
-            with self.lock:
-                self.exited = True
+                        self.rx_queue.put(recv_pkt)
+                        self.recv_bytes = remaining
+                time.sleep(0.00001)
+            except Exception as e:
+                print(f"Error receiving: {e}")
+
+        self.rx_queue.put(Packet(PacketType.INTERNAL, BROADCAST_DEST, "CONN_SHUTDOWN"))
+        self.client_socket.close()
+        with self.lock:
+            self.exited = True
 
     def _run_tx(self):
         """Transmit thread entrypoint function
@@ -108,10 +110,14 @@ class ConnectionHandler:
                 with self.lock:
                     if self.exited:
                         break
-                if not self.tx_queue.empty():
+                while not self.tx_queue.empty():
                     message = self.tx_queue.get()
                     message_bytes = Packet.pack(message)
                     self.client_socket.sendall(message_bytes)
-                time.sleep(0.01)
+                time.sleep(0.00001)
         except Exception as e:
+            # Don't print error if the error was probably associated with
+            # the connection ending and we just didn't catch it yet
+            if self.exited:
+                return
             print(f"Error transmitting: {e}")

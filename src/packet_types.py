@@ -1,12 +1,19 @@
 import pickle
 import struct
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import TypeAlias
+from typing import Optional, TypeAlias
 
 import cv2
 import numpy as np
-from cv2.typing import MatLike
+
+try:
+    from cv2.typing import MatLike as MatLike
+except ImportError:
+    MatLike: TypeAlias = np.ndarray  # type: ignore
+
+cv2.setNumThreads(cv2.getNumberOfCPUs())
 
 
 @dataclass
@@ -81,9 +88,12 @@ class Packet:
     Internally, the sockets do not care about this field and it does not affect transmission"""
     payload: Payload
     """Packet payload"""
-    # 1 byte for type, 4 bytes for IP address, 4 byte int for port, 8 bytes for payload length
+    timestamp: float = field(default_factory=time.time)
+    """Packet timestamp"""
+    # 1 byte for type, 4 bytes for IP address, 4 byte int for port,
+    # 8 bytes for payload length, 8 byte double for timestamp
     # big-endian
-    HEADER_FORMAT = "!BBBBBiQ"
+    HEADER_FORMAT = "!BBBBBiQd"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
     @classmethod
@@ -99,7 +109,7 @@ class Packet:
         if isinstance(packet.payload, int):
             payload_data = packet.payload.to_bytes()
         elif isinstance(packet.payload, np.ndarray):
-            payload_data = cv2.imencode(".jpg", packet.payload)[1].tobytes()
+            payload_data = cv2.imencode(".bmp", packet.payload)[1].tobytes()
         elif isinstance(packet.payload, dict):
             payload_data = pickle.dumps(packet.payload)
         else:
@@ -111,40 +121,38 @@ class Packet:
             packet.packet_type.value,
             *packet.packet_address.ip,
             packet.packet_address.port,
-            len(payload_data)
+            len(payload_data),
+            time.time(),
         )
 
         # Combine the header and payload
         return header + payload_data
 
     @classmethod
-    def unpack(cls, data: bytes) -> tuple["Packet", bytes]:
+    def unpack(cls, data: bytes) -> tuple[Optional["Packet"], bytes]:
         """Deserialize binary data into a Packet instance
 
         Args:
             data: Bytes string to unpack into a packet. The first valid packet will be
                   parsed out of data and any extra data will be returned back (see return values)
 
-        Raises:
-            ValueError: If the data is too short to contain a packet header
-            ValueError: If the length field requests more data than is available
-
         Returns:
-            Tuple of (parsed and unpacked Packet, remaining unparsed bytes)
+            Tuple of (parsed and unpacked Packet,
+                      or None if no valid packet, remaining unparsed bytes).
         """
         if len(data) < cls.HEADER_SIZE:
-            raise ValueError("Data is too short to contain a valid packet header")
+            return (None, data)
 
         # Unpack the header
-        (packet_type_value, ip_0, ip_1, ip_2, ip_3, source_port, payload_length) = struct.unpack(
-            cls.HEADER_FORMAT, data[: cls.HEADER_SIZE]
+        (packet_type_value, ip_0, ip_1, ip_2, ip_3, source_port, payload_length, timestamp) = (
+            struct.unpack(cls.HEADER_FORMAT, data[: cls.HEADER_SIZE])
         )
 
         source_ip = (ip_0, ip_1, ip_2, ip_3)
 
         # Validate and extract payload
         if len(data) < cls.HEADER_SIZE + payload_length:
-            raise ValueError("Incomplete payload in the received data")
+            return (None, data)
 
         payload_data = data[cls.HEADER_SIZE : cls.HEADER_SIZE + payload_length]
         remaining_data = data[cls.HEADER_SIZE + payload_length :]
@@ -165,6 +173,7 @@ class Packet:
                 packet_type=PacketType(packet_type_value),
                 packet_address=PacketAddress(source_ip, source_port),
                 payload=payload,
+                timestamp=timestamp,
             ),
             remaining_data,
         )
