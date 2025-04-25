@@ -112,7 +112,6 @@ class ConnectionHandler:
                     if self.exited:
                         break
                 while not self.tx_queue.empty():
-                    print(f"Queue length: {self.tx_queue.qsize()}")
                     message = self.tx_queue.get()
                     message_bytes = Packet.pack(message)
                     self.client_socket.sendall(message_bytes)

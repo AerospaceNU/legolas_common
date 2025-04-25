@@ -36,7 +36,7 @@ class SocketClient:
 
         self.outgoing_data = outgoing_data
         self.received_data = received_data
-        self.internal_recv_queue: Queue[Packet] = Queue()
+        self.internal_recv: Queue[Packet] = Queue()
         self.disconnected = True
 
         self.prev_connection_time = 0
@@ -56,6 +56,11 @@ class SocketClient:
         self.stop_event.set()
         self.run_thread.join()
         self.handler.join()
+        try:
+            self.client_socket.shutdown(socket.SHUT_RDWR)
+            self.client_socket.close()
+        except Exception:
+            pass
 
     def _run_handler(self):
         """Main loop to run the client and transmit and receive packets"""
@@ -71,7 +76,7 @@ class SocketClient:
                         self.disconnected = False
                         self.handler = ConnectionHandler(
                             self.outgoing_data,
-                            self.internal_recv_queue,
+                            self.internal_recv,
                             self.client_socket,
                             self.stop_event,
                         )
@@ -80,8 +85,8 @@ class SocketClient:
                         print("Unable to connect to server...")
                         self.prev_connection_time = time.time()
             else:
-                if not self.internal_recv_queue.empty():
-                    msg = self.internal_recv_queue.get()
+                if not self.internal_recv.empty():
+                    msg = self.internal_recv.get()
                     if msg.packet_type == PacketType.INTERNAL and msg.payload == "CONN_SHUTDOWN":
                         self.disconnected = True
                         try:
@@ -90,11 +95,14 @@ class SocketClient:
                         except Exception:
                             pass
                     else:
-                        # Forward any other messages to the receiver
                         self.received_data.put(msg)
+                    print(f"Packet time differential is {time.time() - msg.timestamp} seconds")
+                    if msg.packet_type == PacketType.INTERNAL:
+                        print(f"Received internal: {msg.payload}")
+                    elif msg.packet_type == PacketType.CONTROL:
+                        print(f"Received control: {msg.payload}")
+                    elif msg.packet_type == PacketType.IMAGE:
+                        print("Received image")
+                    else:
+                        print(f"Received ack: {msg.payload}")
             time.sleep(0.00001)
-        try:
-            self.client_socket.shutdown(socket.SHUT_RDWR)
-            self.client_socket.close()
-        except Exception:
-            pass
