@@ -8,11 +8,6 @@ from typing import Optional, TypeAlias
 import cv2
 import numpy as np
 
-try:
-    from cv2.typing import MatLike as MatLike
-except ImportError:
-    MatLike: TypeAlias = np.ndarray  # type: ignore
-
 cv2.setNumThreads(cv2.getNumberOfCPUs())
 
 
@@ -66,10 +61,10 @@ class PacketType(Enum):
     """Internal communication packet"""
 
 
-Payload: TypeAlias = dict | MatLike | int | str
+Payload: TypeAlias = dict | np.ndarray | int | str
 """Payload type definitions.
 dict is expected for CONTROL packets
-MatLike is expected for IMAGE packets
+np.ndarray image is expected for IMAGE packets,
 int is expected for ACK
 str is expected for INTERNAL communication signals
 """
