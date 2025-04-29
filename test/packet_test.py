@@ -56,7 +56,7 @@ def test_pack_image() -> None:
 
 
 def test_pack_ack() -> None:
-    pkt = Packet(PacketType.ACK, PacketAddress("127.0.0.1", 2445), 13)
+    pkt = Packet(PacketType.ACK, PacketAddress("127.0.0.1", 2445), {"response_id": 13})
     packed = Packet.pack(pkt)
 
     assert isinstance(packed, bytes)
@@ -67,9 +67,9 @@ def test_pack_ack() -> None:
     assert len(remaining) == 0
 
     assert unpacked.packet_type == PacketType.ACK
-    assert isinstance(unpacked.payload, int)
+    assert isinstance(unpacked.payload, dict)
     assert unpacked.packet_address == PacketAddress("127.0.0.1", 2445)
-    assert unpacked.payload == 13
+    assert unpacked.payload["response_id"] == 13
 
 
 def test_pack_internal() -> None:

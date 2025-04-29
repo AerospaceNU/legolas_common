@@ -61,11 +61,10 @@ class PacketType(Enum):
     """Internal communication packet"""
 
 
-Payload: TypeAlias = dict | np.ndarray | int | str
+Payload: TypeAlias = dict | np.ndarray | str
 """Payload type definitions.
-dict is expected for CONTROL packets
-np.ndarray image is expected for IMAGE packets,
-int is expected for ACK
+dict is expected for CONTROL packets and ACK packets
+np.ndarray image is expected for IMAGE packets
 str is expected for INTERNAL communication signals
 """
 
@@ -101,9 +100,7 @@ class Packet:
         Returns:
             Packet serialized into bytes
         """
-        if isinstance(packet.payload, int):
-            payload_data = packet.payload.to_bytes()
-        elif isinstance(packet.payload, np.ndarray):
+        if isinstance(packet.payload, np.ndarray):
             payload_data = cv2.imencode(".bmp", packet.payload)[1].tobytes()
         elif isinstance(packet.payload, dict):
             payload_data = pickle.dumps(packet.payload)
@@ -153,13 +150,11 @@ class Packet:
         remaining_data = data[cls.HEADER_SIZE + payload_length :]
 
         payload_type = PacketType(packet_type_value)
-        if payload_type == PacketType.CONTROL:
+        if payload_type == PacketType.CONTROL or payload_type == PacketType.ACK:
             payload = pickle.loads(payload_data)
         elif payload_type == PacketType.IMAGE:
             frame_mat = np.frombuffer(payload_data, dtype=np.uint8)
             payload = cv2.imdecode(frame_mat, cv2.IMREAD_COLOR)
-        elif payload_type == PacketType.ACK:
-            payload = int.from_bytes(payload_data)
         else:
             payload = payload_data.decode()
 
