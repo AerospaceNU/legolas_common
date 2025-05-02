@@ -17,6 +17,10 @@ def draw_tracked_object(frame, obj: TrackerObject, color=(0, 255, 0)):
     bottom_right = tuple(map(int, (obj.bbox.bottom_right.x, obj.bbox.bottom_right.y)))
 
     # Draw rectangle
+    if obj.primary_track:
+        color = (0, 255, 0)
+    else:
+        color = (0, 0, 255)
     cv2.rectangle(frame, top_left, bottom_right, color, thickness=2)
 
     # Label: "class_name (ID)"
